@@ -24,6 +24,7 @@ sudo test -f /etc/paloalto-mcp/paloalto-mcp.env || sudo install -o root -g paloa
 sudo test -f /etc/paloalto-mcp/inventory.yaml || sudo install -o root -g paloalto-mcp -m 640 inventory.example.yaml /etc/paloalto-mcp/inventory.yaml
 sudo install -o root -g root -m 644 paloalto-mcp.service /etc/systemd/system/paloalto-mcp.service
 sudo systemctl daemon-reload
+bash "$(dirname "$0")/sync-credentials.sh"
 
 echo "1. Edit /etc/paloalto-mcp/inventory.yaml (Panorama and firewalls)"
 echo "2. Store the read-only login (prompts without echo):  bash set-secret.sh panos_user_firewall ; bash set-secret.sh panos_pass_firewall   (or *_panorama)"

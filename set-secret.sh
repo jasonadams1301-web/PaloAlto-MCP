@@ -13,4 +13,5 @@ read -rsp "$name: " value; echo
 [ -n "$value" ] || { echo "empty value, nothing written" >&2; exit 1; }
 printf %s "$value" | sudo install -o root -g root -m 600 /dev/stdin "/etc/paloalto-mcp/credentials/$name"
 echo "stored /etc/paloalto-mcp/credentials/$name"
-echo "named keys also need a LoadCredential= line in the service unit; then: sudo systemctl restart paloalto-mcp"
+bash "$(dirname "$0")/sync-credentials.sh"
+echo "restart the service to use it: sudo systemctl restart paloalto-mcp"
