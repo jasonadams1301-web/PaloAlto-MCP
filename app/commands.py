@@ -5,6 +5,7 @@
 - Configuration reads (`type=config&action=get`) use fixed XPaths; only validated names are substituted into them.
 - Log searches are built from structured, validated filters (see build_log_query).
 Callers pass a command KEY and validated parameters; they never supply XML, XPath or filter text."""
+import re
 from dataclasses import dataclass
 
 from app.validation import (ValidationError, validate_app, validate_dg, validate_interface, validate_ip,
@@ -160,12 +161,23 @@ LOG_ACTIONS = ("allow", "deny", "drop", "reset-client", "reset-server", "reset-b
 LOG_SEVERITIES = ("informational", "low", "medium", "high", "critical")
 
 
-def build_log_query(window: str, source=None, destination=None, application=None, action=None, rule=None,
-                    destination_port=None, from_zone=None, to_zone=None, severity=None) -> str:
-    """Structured log filter. Values are validated first; none can contain quotes or parentheses."""
-    if window not in LOG_WINDOWS:
-        raise ValidationError("window must be one of " + ", ".join(LOG_WINDOWS))
-    clauses = [f"(receive_time in {LOG_WINDOWS[window]})"]
+_SINCE_RX = re.compile(r"20[0-9]{2}/[01][0-9]/[0-3][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]")
+
+
+def build_log_query(window: str | None, source=None, destination=None, application=None, action=None, rule=None,
+                    destination_port=None, from_zone=None, to_zone=None, severity=None, since: str | None = None) -> str:
+    """Structured log filter. Values are validated first; none can contain quotes or parentheses.
+    The time range is either a named window or `since` (the firewall's own clock, 'YYYY/MM/DD HH:MM:SS')."""
+    if since is not None:
+        if window is not None:
+            raise ValidationError("give either a window or a start time, not both")
+        if not isinstance(since, str) or not _SINCE_RX.fullmatch(since):
+            raise ValidationError("start time must look like 2026/10/05 11:42:35")
+        clauses = [f"(receive_time geq '{since}')"]
+    else:
+        if window not in LOG_WINDOWS:
+            raise ValidationError("window must be one of " + ", ".join(LOG_WINDOWS))
+        clauses = [f"(receive_time in {LOG_WINDOWS[window]})"]
     if source:
         clauses.append(f"(addr.src in {validate_ip_or_cidr(source, 'source')})")
     if destination:

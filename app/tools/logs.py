@@ -1,5 +1,6 @@
 """Log search: structured filters over fixed time windows. No free-text filter language is accepted."""
 import collections
+from datetime import datetime, timedelta
 
 from app.adapters.panos import PanosClient
 from app.commands import LOG_TYPES, LOG_WINDOWS, build_log_query
@@ -28,12 +29,33 @@ APPLICABLE = {                       # which filters make sense for which log ty
 }
 
 
-async def search_logs(inv: Inventory, client: PanosClient, device: str, log_type: str = "traffic", window: str = "1h",
+MAX_MINUTES = 1440
+
+
+async def _device_time(client: PanosClient, d) -> datetime:
+    """The device's current local time (from its system info), because log filters compare against the device's own clock."""
+    obj = await client.op(d, "system_info")
+    system = obj.get("system", obj) if isinstance(obj, dict) else {}
+    text = " ".join(str(system.get("time", "")).split())            # "Mon Oct  5 11:44:35 2026"
+    try:
+        return datetime.strptime(text, "%a %b %d %H:%M:%S %Y")
+    except ValueError:
+        raise ValidationError("could not read the device's clock; use a named window instead of minutes") from None
+
+
+async def search_logs(inv: Inventory, client: PanosClient, device: str, log_type: str = "traffic", window: str | None = None,
                       source: str | None = None, destination: str | None = None, application: str | None = None,
                       action: str | None = None, rule: str | None = None, destination_port: int | None = None,
                       from_zone: str | None = None, to_zone: str | None = None, severity: str | None = None,
-                      limit: int = 50) -> dict:
+                      limit: int = 50, minutes: int | None = None) -> dict:
     check_limit(limit)
+    if minutes is not None:
+        if isinstance(minutes, bool) or not isinstance(minutes, int) or not 1 <= minutes <= MAX_MINUTES:
+            raise ValidationError(f"minutes must be a whole number from 1 to {MAX_MINUTES}")
+        if window is not None:
+            raise ValidationError("give either window or minutes, not both")
+    elif window is None:
+        window = "1h"
     if log_type not in LOG_TYPES:
         raise ValidationError("log_type must be one of " + ", ".join(LOG_TYPES))
     filters = {"source": source, "destination": destination, "application": application, "action": action,
@@ -42,8 +64,12 @@ async def search_logs(inv: Inventory, client: PanosClient, device: str, log_type
     for name, val in filters.items():
         if val is not None and log_type not in APPLICABLE[name]:
             raise ValidationError(f"{name} does not apply to {log_type} logs")
-    query = build_log_query(window, **filters)                              # validates every value
     d = inv.resolve(device)
+    since = device_now = None
+    if minutes is not None:
+        device_now = await _device_time(client, d)
+        since = (device_now - timedelta(minutes=minutes)).strftime("%Y/%m/%d %H:%M:%S")
+    query = build_log_query(window, since=since, **filters)                # validates every value
     entries = await client.log_search(d, log_type, query, limit)
     keep = FIELDS[log_type]
     rows = []
@@ -52,8 +78,10 @@ async def search_logs(inv: Inventory, client: PanosClient, device: str, log_type
             continue
         row = {k: e[k] for k in keep if k in e}
         rows.append(row or e)
-    out = {"device": d.name, "log_type": log_type, "window": window, "returned": len(rows), "logs": rows,
-           "filters": {k: v for k, v in filters.items() if v is not None}}
+    out = {"device": d.name, "log_type": log_type, "window": window if minutes is None else f"last {minutes} minutes",
+           "returned": len(rows), "logs": rows, "filters": {k: v for k, v in filters.items() if v is not None}}
+    if minutes is not None:
+        out["from_device_time"], out["device_time_now"] = since, device_now.strftime("%Y/%m/%d %H:%M:%S")
     if log_type in ("traffic", "threat"):
         out["by_action"] = dict(collections.Counter(str(r.get("action")) for r in rows))
     if len(rows) >= limit:

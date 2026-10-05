@@ -313,3 +313,12 @@ async def test_tls_failure_inside_connect_error_is_reported_as_tls(inv, monkeypa
     c = client(inv, boom, monkeypatch)
     with pytest.raises(PanosError, match="CA-only certificate"):
         await c.op(inv.resolve("fw-edge"), "system_info")
+
+
+def test_log_query_with_a_start_time_is_validated():
+    assert build_log_query(None, since="2026/10/05 11:42:35", application="ssl") ==         "(receive_time geq '2026/10/05 11:42:35') and (app eq 'ssl')"
+    for bad in ("2026/10/05", "2026-10-05 11:42:35", "2026/10/05 11:42:35' or (1=1", "x", 5):
+        with pytest.raises(ValidationError):
+            build_log_query(None, since=bad)
+    with pytest.raises(ValidationError):
+        build_log_query("1h", since="2026/10/05 11:42:35")

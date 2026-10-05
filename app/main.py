@@ -183,16 +183,18 @@ def build_server(inv: Inventory, client: PanosClient, audit: Audit) -> FastMCP:
     @mcp.tool()
     @audit.tool("search_logs", "panos-api")
     @tagged
-    async def search_logs(device: str, log_type: str = "traffic", window: str = "1h", source: str | None = None,
+    async def search_logs(device: str, log_type: str = "traffic", window: str | None = None, source: str | None = None,
                           destination: str | None = None, application: str | None = None, action: str | None = None,
                           rule: str | None = None, destination_port: int | None = None, from_zone: str | None = None,
-                          to_zone: str | None = None, severity: str | None = None, limit: int = 50) -> dict:
+                          to_zone: str | None = None, severity: str | None = None, limit: int = 50,
+                          minutes: int | None = None) -> dict:
         """Search logs with structured filters. log_type: traffic, threat, url, wildfire, system, config, globalprotect,
-        userid, auth. window: 15m, 1h, 6h, 24h, 7d. Filters: source, destination (IP or network), application, action
+        userid, auth. Time range: either window (15m, 1h, 6h, 24h, 7d; default 1h) or minutes (1-1440, for example 2 for the last
+        two minutes), not both. Filters: source, destination (IP or network), application, action
         (allow, deny, drop, reset-client, reset-server, reset-both, alert, block-ip, block-url), rule, destination_port,
         from_zone, to_zone, severity (informational, low, medium, high, critical). limit up to 200, newest first."""
         return await lg.search_logs(inv, client, device, log_type, window, source, destination, application, action, rule,
-                                    destination_port, from_zone, to_zone, severity, limit)
+                                    destination_port, from_zone, to_zone, severity, limit, minutes)
 
     # ---------------- policy and configuration ----------------
     @mcp.tool()

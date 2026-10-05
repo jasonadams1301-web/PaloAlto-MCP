@@ -25,7 +25,7 @@ def fmt(days):
 
 
 SYSINFO = wrap("<system><hostname>fw-edge</hostname><ip-address>192.0.2.10</ip-address><model>PA-440</model>"
-               "<serial>0123456789</serial><sw-version>11.1.2</sw-version><app-version>8800-8500</app-version>"
+               "<time>Mon Oct  5 11:44:35 2026</time><serial>0123456789</serial><sw-version>11.1.2</sw-version><app-version>8800-8500</app-version>"
                "<threat-version>8800-8500</threat-version><av-version>4800-5000</av-version><uptime>12 days, 3:04:05</uptime>"
                "<multi-vsys>off</multi-vsys><operational-mode>normal</operational-mode></system>")
 RESOURCES = wrap("<![CDATA[top - 10:00:00 up 12 days,  3:04,  1 user,  load average: 0.52, 0.48, 0.45\nTasks: 200 total\n"
@@ -506,3 +506,30 @@ async def test_refused_login_is_not_retried_straight_away(inv, monkeypatch):
         with pytest.raises(Exception, match="refused"):
             await mcp.call_tool("get_system_info", {"device": "fw-edge"})
     assert len(attempts) == 1                                                # the other two calls did not touch the device
+
+
+async def test_search_logs_by_minutes_uses_the_devices_own_clock(inv, env):
+    mcp, fake = mk(inv)
+    out = await call(mcp, "search_logs", device="fw-edge", minutes=2, application="ssl", limit=2)
+    assert out["window"] == "last 2 minutes" and out["from_device_time"] == "2026/10/05 11:42:35"
+    assert out["device_time_now"] == "2026/10/05 11:44:35"
+    queries = [r["form"]["query"] for r in fake.requests if r["form"].get("type") == "log" and "query" in r["form"]]
+    assert queries == ["(receive_time geq '2026/10/05 11:42:35') and (app eq 'ssl')"]
+    assert any("<show><system><info" in (c or "") for c in fake.cmds())      # the clock came from the device, not this server
+    out = await call(mcp, "search_logs", device="fw-edge", minutes=90)
+    assert out["from_device_time"] == "2026/10/05 10:14:35"
+    out = await call(mcp, "search_logs", device="fw-edge")                    # default is still the last hour
+    assert out["window"] == "1h"
+    n = len(fake.requests)
+    for bad in ({"minutes": 0}, {"minutes": 1441}, {"minutes": 1.5}, {"minutes": "abc"}, {"minutes": 5, "window": "1h"}):
+        with pytest.raises(Exception):
+            await mcp.call_tool("search_logs", {"device": "fw-edge", **bad})
+    assert len(fake.requests) == n                                            # refused before reaching the device
+
+
+async def test_search_logs_by_minutes_fails_clearly_when_the_clock_is_unreadable(inv, env):
+    fake = Fake()
+    fake.override("<show><system><info", wrap("<system><hostname>x</hostname></system>"))
+    mcp, _ = mk(inv, fake)
+    with pytest.raises(Exception, match="clock"):
+        await mcp.call_tool("search_logs", {"device": "fw-edge", "minutes": 5})

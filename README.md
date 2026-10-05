@@ -33,7 +33,7 @@ It can look. It cannot change anything.
 | | `find_sessions` | Matching sessions (a filter is required) |
 | | `get_vpn_status` | IKE gateways and IPsec tunnels; flags non-up |
 | | `get_globalprotect_users` | Connected GlobalProtect users |
-| Logs | `search_logs` | Traffic, threat, system, config, URL, ... logs by time window and validated filters (source, destination, application, rule, action, severity) |
+| Logs | `search_logs` | Traffic, threat, system, config, URL, ... logs by a named window (15m to 7d) or the last N minutes (1 to 1440, measured on the firewall's own clock), with validated filters (source, destination, application, rule, action, severity) |
 | Policy | `policy_match` | The firewall's own security-policy-match test: which rule would a flow hit |
 | | `nat_match` | The firewall's own NAT-policy-match test |
 | | `list_rules` | Security or NAT rules (Panorama: per device group, pre or post) with filters |
