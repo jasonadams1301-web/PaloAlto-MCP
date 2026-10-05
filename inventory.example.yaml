@@ -1,0 +1,30 @@
+# Approved devices. Only these can be queried; tools take the NAME, never an address.
+# This example uses documentation-only addresses. Keep the real file on the server only (/etc/paloalto-mcp/inventory.yaml).
+devices:
+  # A Panorama. Its API key is panos_key_panorama.
+  - name: pan-primary
+    kind: panorama
+    address: panorama.example.net
+    site: HQ
+    model: M-200
+    mcp_enabled: true
+
+  # A firewall managed by that Panorama: queried through it (target=<serial>), so it needs no address or key of its own.
+  - name: fw-branch1
+    kind: firewall
+    via: pan-primary
+    serial: "012345678901"
+    site: Branch1
+    model: PA-440
+    mcp_enabled: true
+
+  # A firewall queried directly. Key is panos_key_firewall, or panos_key_<credential> when `credential` is set.
+  - name: fw-edge
+    kind: firewall
+    address: 192.0.2.10
+    site: Edge
+    model: PA-3220
+    credential: edge          # optional
+    tls: pinned               # pinned (default): trust exactly the certificate stored in certs/<name>.pem; or ca
+    vsys: vsys1               # optional
+    mcp_enabled: true

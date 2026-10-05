@@ -1,0 +1,39 @@
+[Unit]
+Description=Read-only Palo Alto (PAN-OS / Panorama) MCP Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paloalto-mcp
+Group=paloalto-mcp
+WorkingDirectory=/opt/paloalto-mcp
+EnvironmentFile=/etc/paloalto-mcp/paloalto-mcp.env
+# API keys are loaded by systemd and exposed only to this service via $CREDENTIALS_DIRECTORY.
+# A listed file must exist or the service will not start: comment out the line for a key you do not use.
+# The server logs in with a read-only username and password and keeps the session key in memory only.
+LoadCredential=panos_user_firewall:/etc/paloalto-mcp/credentials/panos_user_firewall
+LoadCredential=panos_pass_firewall:/etc/paloalto-mcp/credentials/panos_pass_firewall
+#LoadCredential=panos_user_panorama:/etc/paloalto-mcp/credentials/panos_user_panorama
+#LoadCredential=panos_pass_panorama:/etc/paloalto-mcp/credentials/panos_pass_panorama
+# Or use a pre-generated API key instead of a login:
+#LoadCredential=panos_key_firewall:/etc/paloalto-mcp/credentials/panos_key_firewall
+# Per-device accounts (inventory field `credential: edge` -> panos_user_edge / panos_pass_edge): add matching lines
+ExecStart=/opt/paloalto-mcp/venv/bin/python -m app.main
+Restart=on-failure
+RestartSec=10
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/log/paloalto-mcp
+
+[Install]
+WantedBy=multi-user.target
