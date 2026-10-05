@@ -143,7 +143,7 @@ python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest
 ```
 
-**Tested on real devices:** a full Panorama (with its managed firewalls and device groups), and PA-440 and PA-3220 firewalls,
+**Tested on real devices:** a full Panorama (with its managed firewalls and device groups), and PA-440, PA-850 and PA-3220 firewalls,
 all running a supported PAN-OS release. Response layouts for some commands vary by PAN-OS version and model, so parsers are
 tolerant, and each tool reports `parse_warnings` with the raw result when it cannot recognise a response. Verify against your own
 devices after deploying.
