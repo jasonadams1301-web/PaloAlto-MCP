@@ -1,14 +1,13 @@
 # paloalto-mcp
 
 A **read-only** [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that lets an AI agent inspect
-Palo Alto Networks **Panorama** and **PAN-OS firewalls** for monitoring and troubleshooting, built for
-[OpenClaw Enterprise](https://github.com/mholovetskyi/openclawenterprise) (OCE) on Ubuntu Server. It follows the same design as
+Palo Alto Networks **Panorama** and **PAN-OS firewalls** for monitoring and troubleshooting. It follows the same design as
 the sibling `extreme-mcp` project.
 
 It can look. It cannot change anything.
 
 - Talks to the **PAN-OS XML API** over HTTPS, either to a Panorama (which can proxy to the firewalls it manages) or to a firewall directly.
-- Runs as its own systemd service on the OCE host, bound to **127.0.0.1 only**.
+- Runs as its own systemd service bound to **127.0.0.1 only**.
 - Credentials never leave the service. The agent receives results, not passwords.
 
 ## Tools (24)
@@ -115,11 +114,12 @@ sudo systemctl enable --now paloalto-mcp && sudo ss -lntp | grep ':8766'     # m
 
 Compare the fingerprint `scan-cert.py` prints with the one on the device before saving the certificate.
 
-Register in OCE:
+Register with your MCP client using these settings:
 
 ```
-openclaw mcp add paloalto-network-readonly --transport streamable-http --url http://127.0.0.1:8766/mcp
-openclaw mcp tools paloalto-network-readonly
+Name:      paloalto-network-readonly
+Transport: streamable-http
+URL:       http://127.0.0.1:8766/mcp
 ```
 
 With a small local model, give the firewall tools to a separate agent (or use `--include`) rather than one agent with every network tool.
